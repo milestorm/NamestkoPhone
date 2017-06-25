@@ -47,6 +47,22 @@ void setup(){
 	display.setBrightness(0x0f);
 	display.setSegments(CLEARDATA);
 
+  /*
+  // uncomment to set time to RTC
+  time_t t;
+  tmElements_t tm;
+  tm.Year = CalendarYrToTm(2017);
+  tm.Month = 6;
+  tm.Day = 25;
+  tm.Hour = 20;
+  tm.Minute = 11;
+  tm.Second = 0;
+  t = makeTime(tm);
+  if (RTC.set(t) == 0) {
+    Serial.println("Time set!");
+  }
+  */
+
 }
 
 void loop(){
@@ -65,9 +81,9 @@ void loop(){
         tLast = t;
 
         if ((tm.Second % 2) == 0) { // pulsing doubledot between time
-          display.showNumberDecEx(tm.Minute*100+tm.Second, (0x80 >> 1), true);
+          display.showNumberDecEx(tm.Hour * 100 + tm.Minute, (0x80 >> 1), true);
         } else {
-          display.showNumberDecEx(tm.Minute*100+tm.Second, 0, true);
+          display.showNumberDecEx(tm.Hour * 100 + tm.Minute, 0, true);
         }
 
     }
