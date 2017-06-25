@@ -1,5 +1,8 @@
 #include <Arduino.h>
 #include <TM1637Display.h>
+#include <DS3232RTC.h>        // http://github.com/JChristensen/DS3232RTC
+#include <Time.h>             // http://playground.arduino.cc/Code/Time
+#include <Wire.h>             // http://arduino.cc/en/Reference/Wire
 
 // Display Module connection pins (Digital Pins)
 #define CLK 11
@@ -32,6 +35,10 @@ void setup(){
   Serial.begin(9600);
   pinMode(dialerInput, INPUT_PULLUP);
 
+	setSyncProvider(RTC.get);
+	Serial.println("RTC sync...");
+	if (timeStatus() != timeSet) Serial.println("FAIL!");
+
 	// clear display
 	display.setBrightness(0x0f);
 	display.setSegments(clearData);
@@ -39,6 +46,14 @@ void setup(){
 }
 
 void loop(){
+	static time_t tLast;
+
+  time_t t = now();
+  if (t != tLast) {
+      tLast = t;
+      Serial.println(t);
+  }
+
 
   int reading = digitalRead(dialerInput);
 
