@@ -22,7 +22,8 @@ int cursorPosition = 0;
 String alarmTimeTemp = "";
 String alarmTime = "";
 
-// constants
+bool phoneHanged = true;
+
 
 unsigned int dialHasFinishedRotatingAfterMs = 100;
 unsigned int debounceDelay = 10;
@@ -86,6 +87,16 @@ void loop(){
           display.showNumberDecEx(tm.Hour * 100 + tm.Minute, 0, true);
         }
 
+    }
+    phoneHanged = true;
+    cursorPosition = 0;
+    alarmTime = "";
+    alarmTimeTemp = "";
+  }
+  else {
+    if (phoneHanged == true) {
+      display.setSegments(SEG_DASHES);
+      phoneHanged = false;
     }
   }
 
