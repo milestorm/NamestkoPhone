@@ -10,6 +10,7 @@
 
 #define HANGUP 5
 #define DIALERINPUT 2
+#define SOLENOID 8
 
 int needToPrint = 0;
 int count;
@@ -62,8 +63,9 @@ void countdownTime(int pTime[]){
     pTime[1] = 59;
     pTime[0] -= 1;
   }
-  if (pTime[0] == 0 && pTime[1] == 0) {
-    /* code */
+  if (pTime[0] <= 0 && pTime[1] <= 0) {
+    pTime[1] = 0;
+    pTime[0] = 0;
   }
 }
 
@@ -73,6 +75,7 @@ void setup(){
   Serial.begin(9600);
   pinMode(DIALERINPUT, INPUT_PULLUP);
   pinMode(HANGUP, INPUT_PULLUP);
+  pinMode(SOLENOID, OUTPUT);
 
 	setSyncProvider(RTC.get);
 	Serial.println("RTC sync...");
@@ -115,6 +118,7 @@ void loop(){
   if (hangupButt == LOW) {
     if (timeStopSet == true) {
       timeStop = timeToTimestampStop(tm, alarmTime);
+      timeStop -= 1;
       timeStopSet = false;
     }
     if (t != tLast) {
@@ -150,6 +154,7 @@ void loop(){
           Serial.println(timeStop);
           if (t >= timeStop && t < (timeStop + maxPhoneRingTime)) {
             Serial.println("CRRRRRRR, pyco");
+            digitalWrite(SOLENOID, HIGH);
           }
 
         }
@@ -163,6 +168,7 @@ void loop(){
     if (phoneHanged == true) {
       // reset values
       display.setSegments(SEG_DASHES);
+      digitalWrite(SOLENOID, LOW);
       phoneHanged = false;
       cursorPosition = 0;
       alarmSet = false;
