@@ -20,9 +20,13 @@ int cleared = 0;
 
 int cursorPosition = 0;
 String alarmTimeTemp = "";
-String alarmTime = "";
+int alarmTime[2] = {0, 0}; // mm:ss
+bool alarmSet = false;
+time_t timeStop;
+bool timeStopSet = false;
 
 bool phoneHanged = true;
+int maxPhoneRingTime = 30; // maximal time of phone ringing (seconds)
 
 
 unsigned int dialHasFinishedRotatingAfterMs = 100;
@@ -32,6 +36,36 @@ const uint8_t SEG_DASHES[] = { SEG_G, SEG_G, SEG_G, SEG_G	};
 const uint8_t CLEARDATA[] = { 0x00, 0x00, 0x00, 0x00 };
 TM1637Display display(CLK, DIO);
 
+time_t timeToTimestampStop(tmElements_t actualTime, int hmsStopArray[]){
+  tmElements_t elTimeStop;
+
+  elTimeStop.Year = actualTime.Year;
+  elTimeStop.Month = actualTime.Month;
+  elTimeStop.Day = actualTime.Day;
+  elTimeStop.Hour = actualTime.Hour;
+  elTimeStop.Minute = actualTime.Minute + hmsStopArray[0];
+  elTimeStop.Second = actualTime.Second + hmsStopArray[1];
+  Serial.print("Prevadim: ");
+  Serial.print(hmsStopArray[0]);
+  Serial.print(":");
+  Serial.println(hmsStopArray[1]);
+  Serial.print("Prevedeno na: ");
+  Serial.println(makeTime(elTimeStop));
+  return makeTime(elTimeStop);
+}
+
+void countdownTime(int pTime[]){
+  if (pTime[1] <= 59 && pTime[1] >= 0) {
+    pTime[1] -= 1;
+  }
+  if (pTime[0] >= 1 && pTime[1] < 0) {
+    pTime[1] = 59;
+    pTime[0] -= 1;
+  }
+  if (pTime[0] == 0 && pTime[1] == 0) {
+    /* code */
+  }
+}
 
 void setup(){
 
@@ -75,28 +109,66 @@ void loop(){
 
   time_t t = now();
   tmElements_t tm;
+  tmElements_t almTm;
   breakTime(t, tm);
 
   if (hangupButt == LOW) {
+    if (timeStopSet == true) {
+      timeStop = timeToTimestampStop(tm, alarmTime);
+      timeStopSet = false;
+    }
     if (t != tLast) {
         tLast = t;
+        // do every second
 
-        if ((tm.Second % 2) == 0) { // pulsing doubledot between time
-          display.showNumberDecEx(tm.Hour * 100 + tm.Minute, (0x80 >> 1), true);
+        if (alarmSet == false) {
+          // show actual time
+          if ((tm.Second % 2) == 0) { // pulsing doubledot between time
+            display.showNumberDecEx(tm.Hour * 100 + tm.Minute, (0x80 >> 1), true);
+          } else {
+            display.showNumberDecEx(tm.Hour * 100 + tm.Minute, 0, true);
+          }
         } else {
-          display.showNumberDecEx(tm.Hour * 100 + tm.Minute, 0, true);
+          // show alarm countdown
+
+          countdownTime(alarmTime);
+          Serial.print("TEST PO: ");
+          Serial.print(alarmTime[0]);
+          Serial.print(":");
+          Serial.println(alarmTime[1]);
+
+          if ((alarmTime[1] % 2) == 0) { // pulsing doubledot between time
+            display.showNumberDecEx(alarmTime[0] * 100 + alarmTime[1], (0x80 >> 1), true);
+          } else {
+            display.showNumberDecEx(alarmTime[0] * 100 + alarmTime[1], 0, true);
+          }
+
+
+          Serial.print("Aktualni cas je:   ");
+          Serial.println(t);
+          Serial.print("Alarm nastaven na: ");
+          Serial.println(timeStop);
+          if (t >= timeStop && t < (timeStop + maxPhoneRingTime)) {
+            Serial.println("CRRRRRRR, pyco");
+          }
+
         }
+
 
     }
     phoneHanged = true;
-    cursorPosition = 0;
-    alarmTime = "";
-    alarmTimeTemp = "";
+
   }
   else {
     if (phoneHanged == true) {
+      // reset values
       display.setSegments(SEG_DASHES);
       phoneHanged = false;
+      cursorPosition = 0;
+      alarmSet = false;
+      alarmTime[0] = 0;
+      alarmTime[1] = 0;
+      alarmTimeTemp = "";
     }
   }
 
@@ -110,13 +182,20 @@ void loop(){
 				display.setSegments(SEG_DASHES);
 			}
 			count = count % 10;
-			display.showNumberDec(count, false, 1, cursorPosition);
-			alarmTimeTemp += count;
-			cursorPosition++;
+      if ((cursorPosition == 0 || cursorPosition == 2) && count > 5) {
+        Serial.println("nope");
+      } else {
+        display.showNumberDec(count, false, 1, cursorPosition);
+  			alarmTimeTemp += count;
+  			cursorPosition++;
+      }
+
 
 			if (cursorPosition > 3) {
-				alarmTime = alarmTimeTemp;
-				Serial.println(alarmTime);
+				alarmTime[0] = alarmTimeTemp.substring(0,2).toInt();
+        alarmTime[1] = alarmTimeTemp.substring(2,4).toInt();
+        timeStopSet = true;
+        alarmSet = true;
 				alarmTimeTemp = "";
 				cursorPosition = 0;
 			}
