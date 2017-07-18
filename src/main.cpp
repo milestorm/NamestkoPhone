@@ -5,8 +5,8 @@
 #include <Wire.h>             // http://arduino.cc/en/Reference/Wire
 
 // Display Module connection pins (Digital Pins)
-#define CLK 11
-#define DIO 10
+#define CLK 4
+#define DIO 3
 
 #define HANGUP 5
 #define DIALERINPUT 2
