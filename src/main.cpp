@@ -30,6 +30,7 @@ bool timeStopSet = false;
 
 bool phoneHanged = true;
 int maxPhoneRingTime = 30; // maximal time of phone ringing (seconds)
+bool ringActive = false;
 
 
 unsigned int dialHasFinishedRotatingAfterMs = 100;
@@ -133,7 +134,107 @@ void printDetail(uint8_t type, int value){
   }
 }
 
+class Ringer
+{
+	// Class Member Variables
+	// These are initialized at startup
+	int ledPin;      // the number of the LED pin
+	long OnTime;     // milliseconds of on-time
+	long OffTime;    // milliseconds of off-time
+  int cntrOn;      // how many on clicks to do
+  int cntrOnCount;
+  int cntrOff;
+  int cntrOffCount;
+  bool buzzing = false;
 
+	// These maintain the current state
+	int ledState;             		// ledState used to set the LED
+	unsigned long previousMillis;  	// will store last time LED was updated
+
+  // Constructor - creates a Flasher
+  // and initializes the member variables and state
+  public:
+  Ringer(int pin, long on, long off, long cOn, long cOff)
+  {
+	ledPin = pin;
+	pinMode(ledPin, OUTPUT);
+
+	OnTime = on;
+	OffTime = off;
+  cntrOn = cOn;
+  cntrOff = cOff;
+
+  cntrOffCount = 0;
+  cntrOnCount = 0;
+	ledState = LOW;
+	previousMillis = 0;
+  }
+
+  void update(bool status)
+  {
+    if (status == true) {
+
+      // check to see if it's time to change the state of the LED
+      unsigned long currentMillis = millis();
+
+
+      if (cntrOnCount <= cntrOn) {
+        // do the action
+        //Serial.print("cntrOnCount");
+        //Serial.println(cntrOnCount);
+        buzzing = true;
+        if (cntrOnCount == cntrOn) {
+          buzzing = false;
+          cntrOffCount = 0;
+        }
+
+        if((ledState == HIGH) && (currentMillis - previousMillis >= OnTime))
+        {
+        	ledState = LOW;  // Turn it off
+          previousMillis = currentMillis;  // Remember the time
+          digitalWrite(ledPin, ledState);  // Update the actual LED
+          cntrOnCount++;
+        }
+        else if ((ledState == LOW) && (currentMillis - previousMillis >= OffTime))
+        {
+          ledState = HIGH;  // turn it on
+          previousMillis = currentMillis;   // Remember the time
+          digitalWrite(ledPin, ledState);	  // Update the actual LED
+        }
+
+      } else if (cntrOffCount <= cntrOff && buzzing == false) {
+        // do nothing, John Snow
+        //Serial.print("cntrOffCount");
+        //Serial.println(cntrOffCount);
+        if (cntrOffCount == cntrOff) {
+          buzzing = true;
+          cntrOnCount = 0;
+        }
+
+        if((ledState == HIGH) && (currentMillis - previousMillis >= OnTime))
+        {
+        	ledState = LOW;
+          previousMillis = currentMillis;
+          cntrOffCount++;
+        }
+        else if ((ledState == LOW) && (currentMillis - previousMillis >= OffTime))
+        {
+          ledState = HIGH;
+          previousMillis = currentMillis;
+        }
+
+      }
+
+
+
+
+    } else {
+      digitalWrite(ledPin, LOW);	// force shutdown
+    }
+  }
+};
+
+Ringer bell(SOLENOID, 50, 50, 20, 40);
 
 
 void setup(){
@@ -192,6 +293,8 @@ void loop(){
   int reading = digitalRead(DIALERINPUT);
   int hangupButt = digitalRead(HANGUP);
 
+  static unsigned long ringerTimer = millis();
+
 	static time_t tLast;
 
   time_t t = now();
@@ -238,8 +341,11 @@ void loop(){
           Serial.println(timeStop);
           if (t >= timeStop && t < (timeStop + maxPhoneRingTime)) {
             Serial.println("CRRRRRRR, pyco");
-            digitalWrite(SOLENOID, HIGH);
-            myDFPlayer.play(2); // play mp3
+            ringActive = true;
+            //digitalWrite(SOLENOID, HIGH);
+            //myDFPlayer.play(2); // play mp3
+          } else {
+            ringActive = false;
           }
 
         }
@@ -253,7 +359,8 @@ void loop(){
     if (phoneHanged == true) {
       // reset values
       display.setSegments(SEG_DASHES);
-      digitalWrite(SOLENOID, LOW);
+      ringActive = false;
+      //digitalWrite(SOLENOID, LOW);
       phoneHanged = false;
       cursorPosition = 0;
       alarmSet = false;
@@ -316,7 +423,7 @@ void loop(){
 
   lastState = reading;
 
-
+  bell.update(ringActive);
 
   if (myDFPlayer.available()) {
     printDetail(myDFPlayer.readType(), myDFPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
