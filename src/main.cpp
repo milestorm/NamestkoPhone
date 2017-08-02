@@ -3,6 +3,8 @@
 #include <DS3232RTC.h>        // http://github.com/JChristensen/DS3232RTC
 #include <Time.h>             // http://playground.arduino.cc/Code/Time
 #include <Wire.h>             // http://arduino.cc/en/Reference/Wire
+#include <SoftwareSerial.h>
+#include <DFRobotDFPlayerMini.h>
 
 // Display Module connection pins (Digital Pins)
 #define CLK 4
@@ -37,6 +39,13 @@ const uint8_t SEG_DASHES[] = { SEG_G, SEG_G, SEG_G, SEG_G	};
 const uint8_t CLEARDATA[] = { 0x00, 0x00, 0x00, 0x00 };
 TM1637Display display(CLK, DIO);
 
+SoftwareSerial mySoftwareSerial(10, 11); // RX, TX
+DFRobotDFPlayerMini myDFPlayer;
+void printDetail(uint8_t type, int value);
+
+int mp3Count; // kolik mp3 je na sd karte
+
+
 time_t timeToTimestampStop(tmElements_t actualTime, int hmsStopArray[]){
   tmElements_t elTimeStop;
 
@@ -69,10 +78,85 @@ void countdownTime(int pTime[]){
   }
 }
 
+void printDetail(uint8_t type, int value){
+  switch (type) {
+    case TimeOut:
+      Serial.println(F("Time Out!"));
+      break;
+    case WrongStack:
+      Serial.println(F("Stack Wrong!"));
+      break;
+    case DFPlayerCardInserted:
+      Serial.println(F("Card Inserted!"));
+      break;
+    case DFPlayerCardRemoved:
+      Serial.println(F("Card Removed!"));
+      break;
+    case DFPlayerCardOnline:
+      Serial.println(F("Card Online!"));
+      break;
+    case DFPlayerPlayFinished:
+      Serial.print(F("Number:"));
+      Serial.print(value);
+      Serial.println(F(" Play Finished!"));
+      break;
+    case DFPlayerError:
+      Serial.print(F("DFPlayerError:"));
+      switch (value) {
+        case Busy:
+          Serial.println(F("Card not found"));
+          break;
+        case Sleeping:
+          Serial.println(F("Sleeping"));
+          break;
+        case SerialWrongStack:
+          Serial.println(F("Get Wrong Stack"));
+          break;
+        case CheckSumNotMatch:
+          Serial.println(F("Check Sum Not Match"));
+          break;
+        case FileIndexOut:
+          Serial.println(F("File Index Out of Bound"));
+          break;
+        case FileMismatch:
+          Serial.println(F("Cannot Find File"));
+          break;
+        case Advertise:
+          Serial.println(F("In Advertise"));
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+
+
+
 void setup(){
 
+  mySoftwareSerial.begin(9600);
+  Serial.begin(115200);
 
-  Serial.begin(9600);
+  Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
+  if (!myDFPlayer.begin(mySoftwareSerial)) {  //Use softwareSerial to communicate with mp3.
+    Serial.println(F("Unable to begin:"));
+    Serial.println(F("1.Please recheck the connection!"));
+    Serial.println(F("2.Please insert the SD card!"));
+    while(true);
+  }
+  Serial.println(F("DFPlayer Mini online."));
+  myDFPlayer.setTimeOut(500); //Set serial communictaion time out 500ms
+  myDFPlayer.volume(10);  //Set volume value (0~30).
+  myDFPlayer.EQ(DFPLAYER_EQ_NORMAL);
+  myDFPlayer.outputDevice(DFPLAYER_DEVICE_SD);
+  Serial.print("Total MP3 count in folder SD:/01 : ");
+  mp3Count = myDFPlayer.readFileCountsInFolder(1); //read fill counts in folder SD:/03 and set value
+  Serial.println(mp3Count);
+
   pinMode(DIALERINPUT, INPUT_PULLUP);
   pinMode(HANGUP, INPUT_PULLUP);
   pinMode(SOLENOID, OUTPUT);
@@ -155,6 +239,7 @@ void loop(){
           if (t >= timeStop && t < (timeStop + maxPhoneRingTime)) {
             Serial.println("CRRRRRRR, pyco");
             digitalWrite(SOLENOID, HIGH);
+            myDFPlayer.play(2); // play mp3
           }
 
         }
@@ -230,5 +315,11 @@ void loop(){
   }
 
   lastState = reading;
+
+
+
+  if (myDFPlayer.available()) {
+    printDetail(myDFPlayer.readType(), myDFPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
+  }
 
 }
