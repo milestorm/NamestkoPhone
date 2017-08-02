@@ -44,7 +44,8 @@ SoftwareSerial mySoftwareSerial(10, 11); // RX, TX
 DFRobotDFPlayerMini myDFPlayer;
 void printDetail(uint8_t type, int value);
 
-int mp3Count; // kolik mp3 je na sd karte
+long mp3Count; // kolik mp3 je na sd karte
+bool playMP3 = false;
 
 
 time_t timeToTimestampStop(tmElements_t actualTime, int hmsStopArray[]){
@@ -173,7 +174,6 @@ class Ringer
   void update(bool status)
   {
     if (status == true) {
-
       // check to see if it's time to change the state of the LED
       unsigned long currentMillis = millis();
 
@@ -230,12 +230,21 @@ class Ringer
 
     } else {
       digitalWrite(ledPin, LOW);	// force shutdown
+      cntrOffCount = 0;
+      cntrOnCount = 0;
     }
   }
 };
 
 Ringer bell(SOLENOID, 50, 50, 20, 40);
 
+void randomPlayMP3(){
+  randomSeed(analogRead(0)); // set random seed
+  long randNumber = random(1,mp3Count+1);
+  Serial.print("Playing track: ");
+  Serial.println(randNumber);
+  myDFPlayer.play(randNumber);
+}
 
 void setup(){
 
@@ -342,8 +351,6 @@ void loop(){
           if (t >= timeStop && t < (timeStop + maxPhoneRingTime)) {
             Serial.println("CRRRRRRR, pyco");
             ringActive = true;
-            //digitalWrite(SOLENOID, HIGH);
-            //myDFPlayer.play(2); // play mp3
           } else {
             ringActive = false;
           }
@@ -357,10 +364,14 @@ void loop(){
   }
   else {
     if (phoneHanged == true) {
+      if (ringActive == true) {
+        // Dr. Sova is calling
+        Serial.println("Dobry vecer, tady Sova");
+        playMP3 = true;
+      }
       // reset values
       display.setSegments(SEG_DASHES);
       ringActive = false;
-      //digitalWrite(SOLENOID, LOW);
       phoneHanged = false;
       cursorPosition = 0;
       alarmSet = false;
@@ -424,6 +435,15 @@ void loop(){
   lastState = reading;
 
   bell.update(ringActive);
+
+  if (playMP3 == true) {
+    static unsigned long mp3DelayTimer = millis();
+    if (millis() - mp3DelayTimer > 500) {
+      mp3DelayTimer = millis();
+      randomPlayMP3();
+      playMP3 = false;
+    }
+  }
 
   if (myDFPlayer.available()) {
     printDetail(myDFPlayer.readType(), myDFPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
