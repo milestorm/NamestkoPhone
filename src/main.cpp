@@ -32,6 +32,8 @@ bool phoneHanged = true;
 int maxPhoneRingTime = 30; // maximal time of phone ringing (seconds)
 bool ringActive = false;
 
+unsigned long mp3DelayTimer = 0;
+
 
 unsigned int dialHasFinishedRotatingAfterMs = 100;
 unsigned int debounceDelay = 10;
@@ -236,7 +238,7 @@ class Ringer
   }
 };
 
-Ringer bell(SOLENOID, 50, 50, 20, 40);
+Ringer bell(SOLENOID, 15, 40, 20, 40);
 
 void randomPlayMP3(){
   randomSeed(analogRead(0)); // set random seed
@@ -368,6 +370,7 @@ void loop(){
         // Dr. Sova is calling
         Serial.println("Dobry vecer, tady Sova");
         playMP3 = true;
+        mp3DelayTimer = millis();
       }
       // reset values
       display.setSegments(SEG_DASHES);
@@ -437,11 +440,13 @@ void loop(){
   bell.update(ringActive);
 
   if (playMP3 == true) {
-    static unsigned long mp3DelayTimer = millis();
-    if (millis() - mp3DelayTimer > 500) {
+
+    if (millis() - mp3DelayTimer > 1000) {
+      // tady se to nejak sere, pri prvnim to udela zpomaleni, ale pri druhym vytoceni uz ne, proc?
       mp3DelayTimer = millis();
       randomPlayMP3();
       playMP3 = false;
+      mp3DelayTimer = 0;
     }
   }
 
